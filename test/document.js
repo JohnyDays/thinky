@@ -298,6 +298,7 @@ describe('save', function() {
 
       t.save().then(function(result) {
         assert(t.date instanceof Date)
+        assert.equal(t.date.getYear(), new Date().getYear());
 
         return Model.get(t.id).execute({timeFormat: "raw"})
       }).then(function(result) {
@@ -306,6 +307,32 @@ describe('save', function() {
         done()
       }).error(done)
     });
+    it('Date as string should be coerced to ReQL dates in array', function(done){
+      var Model = thinky.createModel(modelNames[0], {
+        id: String,
+        array: type.array().schema({
+          date: Date
+        })
+      })
+      var t = new Model({
+        id: util.s8(),
+        array: [{
+          date: (new Date()).toISOString()
+        }]
+      });
+
+      t.save().then(function(result) {
+        assert(t.array[0].date instanceof Date)
+        assert.equal(t.array[0].date.getYear(), new Date().getYear());
+
+        return Model.get(t.id).execute({timeFormat: "raw"})
+      }).then(function(result) {
+        assert.equal(Object.prototype.toString.call(result.array[0].date), "[object Object]");
+        assert.equal(result.array[0].date.$reql_type$, "TIME");
+        done()
+      }).error(done)
+    });
+
     it('Date as number should be coerced to ReQL dates', function(done){
       var Model = thinky.createModel(modelNames[0], {
         id: String,
@@ -1467,7 +1494,7 @@ describe('delete', function() {
       }).error(done);
     });
     it('should work with a callback', function(done) {
-      doc.delete().then(function() {
+      doc.delete(function() {
         Model.run(function(err, result) {
           assert.equal(result.length, 0);
           done();
@@ -3052,7 +3079,7 @@ describe('hooks', function() {
   });
 });
 
-describe('removeRelations', function(){
+describe('removeRelation', function(){
   afterEach(cleanTables);
 
   it('should work for hasOne', function(done) {
@@ -3079,8 +3106,8 @@ describe('removeRelations', function(){
     doc.otherDoc = otherDoc;
 
     doc.saveAll().then(function(doc) {
-      return doc.removeRelations({otherDoc: true})
-    }).then(function(result) {
+      return doc.removeRelation('otherDoc')
+    }).then(function() {
       return OtherModel.get(otherDoc.id).run()
     }).then(function(doc) {
       assert.equal(doc.foreignKey, undefined);
@@ -3112,7 +3139,7 @@ describe('removeRelations', function(){
     doc.otherDocs = [otherDoc];
 
     doc.saveAll().then(function(doc) {
-      return doc.removeRelations({otherDocs: true})
+      return doc.removeRelation('otherDocs')
     }).then(function(doc) {
       return OtherModel.get(otherDoc.id).run()
     }).then(function(doc) {
@@ -3145,10 +3172,8 @@ describe('removeRelations', function(){
     doc.otherDoc = otherDoc;
 
     doc.saveAll().then(function(doc) {
-      return doc.removeRelations({otherDoc: true})
-    }).then(function(newDoc) {
-      assert.equal(doc.foreignKey, undefined);
-      assert.equal(newDoc.foreignKey, undefined);
+      return doc.removeRelation('otherDoc')
+    }).then(function() {
       return Model.get(doc.id).run()
     }).then(function(doc) {
       assert.equal(doc.foreignKey, undefined);
@@ -3180,8 +3205,8 @@ describe('removeRelations', function(){
     doc.otherDocs = [otherDoc];
 
     doc.saveAll().then(function(doc) {
-      return doc.removeRelations({otherDocs: true})
-    }).then(function(doc) {
+      return doc.removeRelation('otherDocs')
+    }).then(function() {
       return Model.get(doc.id).getJoin({otherDocs: true}).run()
     }).then(function(doc) {
       assert.equal(doc.otherDocs.length, 0);
